@@ -66,21 +66,28 @@ export interface PlayerProp {
 // Legacy PlayerMarginal (deprecated, use PlayerProp instead)
 export interface PlayerMarginal {
   id: string;
+  // Use either player_id or player object
   player_id: string;
+  player_name: string;
   game_id: string;
   stat_type: string;
+
+  // Stats
+  line: number;
   mean: number;
   std_dev: number;
-  line: number | null;
-  updated_at: string;
-  // Expanded with player info for frontend convenience
-  player?: {
-    id: string;
-    full_name: string;
-    name: string;
-    position: string;
-    team_id: string;
-  };
+
+  // Probabilities & Odds
+  over_probability: number;
+  under_probability: number;
+  over_odds: number | null;
+  under_odds: number | null;
+
+  // Expanded with player info from backend
+  player?: Player;
+
+  // Deprecated/Optional fields to maintain compatibility if needed
+  updated_at?: string;
   passing_yards_projection?: number;
   rushing_yards_projection?: number;
   receiving_yards_projection?: number;
@@ -91,13 +98,17 @@ export type BetType = "spread" | "total" | "moneyline" | "player_prop";
 
 export type PropType =
   | "pass_yards"
+  | "passing_yards"
+  | "passing_tds"
   | "rush_yards"
+  | "rushing_yards"
   | "receiving_yards"
   | "touchdowns"
   | "receptions"
   | "pass_attempts"
   | "completions"
-  | "interceptions";
+  | "interceptions"
+  | "anytime_tds";
 
 export type PropDirection = "over" | "under";
 

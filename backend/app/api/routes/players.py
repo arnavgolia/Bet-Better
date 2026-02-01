@@ -46,6 +46,7 @@ class PropBetResponse(BaseModel):
     under_odds: float | None = None
     mean: float
     std_dev: float
+    player: PlayerResponse | None = None
     
     class Config:
         from_attributes = True
@@ -106,7 +107,7 @@ async def get_game_props(
     - stat_type: Filter by stat type (passing_yards, rushing_yards, etc.)
     """
     query = select(PlayerMarginal).options(
-        selectinload(PlayerMarginal.player)
+        selectinload(PlayerMarginal.player).selectinload(Player.team)
     ).where(PlayerMarginal.game_id == game_id)
     
     if stat_type:
@@ -130,10 +131,38 @@ async def get_game_props(
             over_odds=prop.over_odds,
             under_odds=prop.under_odds,
             mean=prop.mean,
-            std_dev=prop.std_dev
+            std_dev=prop.std_dev,
+            player=PlayerResponse(
+                id=str(prop.player.id),
+                name=prop.player.name,
+                team_id=str(prop.player.team_id),
+                team_name=prop.player.team.name,
+                team_abbreviation=prop.player.team.abbreviation,
+                position=prop.player.position,
+                jersey_number=prop.player.jersey_number,
+                injury_status=prop.player.injury_status,
+                injury_impact=prop.player.injury_impact
+            )
         )
         for prop in props
     ]
+
+
+@router.get("/game/{game_id}/marginals", response_model=List[PropBetResponse])
+async def get_game_marginals(
+    game_id: str,
+    stat_type: str | None = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get player marginals (projected stats) for a specific game.
+    This is an alias for /props endpoint to match frontend expectations.
+    
+    Query Parameters:
+    - stat_type: Filter by stat type (passing_yards, rushing_yards, etc.)
+    """
+    # Just call the props endpoint
+    return await get_game_props(game_id, stat_type, db)
 
 
 @router.get("/{player_id}", response_model=PlayerResponse)

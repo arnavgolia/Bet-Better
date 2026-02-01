@@ -59,6 +59,8 @@ fi
 # Seed Data
 echo ""
 echo "🌱 Seeding database..."
+echo "   - Running Migrations"
+docker-compose exec -T backend alembic upgrade head
 echo "   - Seeding 32 NFL Teams"
 docker-compose exec -T backend python -m scripts.seed_nfl
 echo "   - Seeding Sample Players & Correlations"

@@ -20,10 +20,11 @@ class BetType(str, Enum):
 
 class PropType(str, Enum):
     """Player proposition bet types."""
-    PASS_YARDS = "pass_yards"
-    RUSH_YARDS = "rush_yards"
+    PASSING_YARDS = "passing_yards"
+    RUSHING_YARDS = "rushing_yards"
     RECEIVING_YARDS = "receiving_yards"
-    TOUCHDOWNS = "touchdowns"
+    PASSING_TDS = "passing_tds"
+    ANYTIME_TDS = "anytime_tds"
     RECEPTIONS = "receptions"
     PASS_ATTEMPTS = "pass_attempts"
     COMPLETIONS = "completions"

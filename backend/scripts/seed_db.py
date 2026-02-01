@@ -37,13 +37,25 @@ async def seed_database():
         ]
         
         teams = {}
+        from sqlalchemy import select
+        
         for team_data in teams_data:
-            team = Team(**team_data)
-            session.add(team)
+            # Check if team exists
+            stmt = select(Team).where(Team.abbreviation == team_data["abbreviation"])
+            result = await session.execute(stmt)
+            team = result.scalar_one_or_none()
+            
+            if not team:
+                team = Team(**team_data)
+                session.add(team)
+                await session.flush()
+                logger.info(f"Created team: {team.name}")
+            else:
+                logger.info(f"Found existing team: {team.name}")
+            
             teams[team_data["abbreviation"]] = team
         
-        await session.flush()  # Get IDs
-        logger.info(f"✅ Created {len(teams)} teams")
+        logger.info(f"✅ Loaded {len(teams)} teams")
         
         # ===== VENUES =====
         logger.info("Creating venues...")
