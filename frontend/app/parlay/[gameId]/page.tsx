@@ -1,0 +1,427 @@
+'use client';
+
+import { useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { useParams } from 'next/navigation';
+import { gamesApi, playersApi, parlayApi } from '@/lib/api';
+import type { ParlayLeg, ParlayRequest, PlayerMarginal } from '@/lib/types';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  TrendingUp,
+  TrendingDown,
+  X,
+  Sparkles,
+  AlertCircle,
+  CheckCircle2
+} from 'lucide-react';
+import Link from 'next/link';
+
+export default function ParlayBuilder() {
+  const params = useParams();
+  const gameId = params.gameId as string;
+
+  const [selectedLegs, setSelectedLegs] = useState<ParlayLeg[]>([]);
+  const [showResults, setShowResults] = useState(false);
+
+  // Fetch game details
+  const { data: game, isLoading: gameLoading } = useQuery({
+    queryKey: ['game', gameId],
+    queryFn: () => gamesApi.get(gameId),
+  });
+
+  // Fetch player marginals (projected stats)
+  const { data: marginals, isLoading: marginalsLoading } = useQuery({
+    queryKey: ['marginals', gameId],
+    queryFn: () => playersApi.getMarginals(gameId),
+    enabled: !!game,
+  });
+
+  // Parlay generation mutation
+  const generateParlay = useMutation({
+    mutationFn: (request: ParlayRequest) => parlayApi.generate(request),
+    onSuccess: () => {
+      setShowResults(true);
+    },
+  });
+
+  const addLeg = (leg: ParlayLeg) => {
+    setSelectedLegs((prev) => [...prev, leg]);
+    setShowResults(false);
+  };
+
+  const removeLeg = (index: number) => {
+    setSelectedLegs((prev) => prev.filter((_, i) => i !== index));
+    setShowResults(false);
+  };
+
+  const handleAnalyze = () => {
+    if (selectedLegs.length === 0) return;
+
+    const request: ParlayRequest = {
+      game_id: gameId,
+      legs: selectedLegs,
+    };
+
+    generateParlay.mutate(request);
+  };
+
+  if (gameLoading || marginalsLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading game data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!game) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle className="text-destructive">Game Not Found</CardTitle>
+            <CardDescription>Unable to load game details</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/">
+              <Button>Back to Games</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="border-b">
+        <div className="container mx-auto px-4 py-4">
+          <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
+            <ArrowLeft className="w-4 h-4" />
+            Back to Games
+          </Link>
+
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-2xl font-bold">
+                {game.away_team.name} @ {game.home_team.name}
+              </h1>
+              <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  {new Date(game.commence_time).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
+                </div>
+                {game.venue && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    {game.venue.name}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Player Props Selection */}
+          <div className="lg:col-span-2 space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold mb-4">Select Player Props</h2>
+
+              {!marginals || marginals.length === 0 ? (
+                <Card>
+                  <CardContent className="pt-6">
+                    <p className="text-center text-muted-foreground">
+                      No player props available for this game yet.
+                      <br />
+                      <span className="text-sm">Run the seeding script to populate player data.</span>
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {/* Home Team Players */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">{game.home_team.name}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {marginals
+                        .filter((m) => m.player && m.player.team_id === game.home_team.id)
+                        .slice(0, 5)
+                        .map((marginal) => (
+                          <PlayerPropCard
+                            key={marginal.player!.id}
+                            marginal={marginal}
+                            onAdd={addLeg}
+                          />
+                        ))}
+                    </CardContent>
+                  </Card>
+
+                  {/* Away Team Players */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">{game.away_team.name}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {marginals
+                        .filter((m) => m.player && m.player.team_id === game.away_team.id)
+                        .slice(0, 5)
+                        .map((marginal) => (
+                          <PlayerPropCard
+                            key={marginal.player!.id}
+                            marginal={marginal}
+                            onAdd={addLeg}
+                          />
+                        ))}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Parlay Builder Sidebar */}
+          <div className="space-y-6">
+            <Card className="sticky top-4">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary" />
+                  Your Parlay
+                </CardTitle>
+                <CardDescription>
+                  {selectedLegs.length} {selectedLegs.length === 1 ? 'leg' : 'legs'} selected
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {selectedLegs.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Select player props to build your parlay
+                  </p>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      {selectedLegs.map((leg, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                        >
+                          <div className="flex-1 text-sm">
+                            <div className="font-medium">{leg.player_name}</div>
+                            <div className="text-muted-foreground">
+                              {leg.stat || 'prop'} {leg.direction?.toUpperCase() || ''} {leg.line}
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeLeg(index)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <Button
+                      onClick={handleAnalyze}
+                      disabled={generateParlay.isPending}
+                      className="w-full"
+                      size="lg"
+                    >
+                      {generateParlay.isPending ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Analyze Parlay
+                        </>
+                      )}
+                    </Button>
+                  </>
+                )}
+
+                {/* Results Display */}
+                {showResults && generateParlay.data && (
+                  <div className="mt-6 space-y-4 border-t pt-4">
+                    <div className="text-center">
+                      {generateParlay.data.recommended ? (
+                        <div className="inline-flex items-center gap-2 text-positive">
+                          <CheckCircle2 className="w-6 h-6" />
+                          <span className="font-semibold text-lg">Recommended</span>
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-2 text-negative">
+                          <AlertCircle className="w-6 h-6" />
+                          <span className="font-semibold text-lg">Not Recommended</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Expected Value</span>
+                        <Badge variant={generateParlay.data.ev_pct > 0 ? 'positive' : 'negative'}>
+                          {generateParlay.data.ev_pct > 0 ? '+' : ''}
+                          {generateParlay.data.ev_pct.toFixed(2)}%
+                        </Badge>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">True Probability</span>
+                        <span className="font-semibold">
+                          {(generateParlay.data.true_probability * 100).toFixed(2)}%
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Implied Probability</span>
+                        <span className="font-semibold">
+                          {(generateParlay.data.implied_probability * 100).toFixed(2)}%
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Fair Odds</span>
+                        <span className="font-semibold">{generateParlay.data.fair_odds}</span>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Sportsbook Odds</span>
+                        <span className="font-semibold">{generateParlay.data.sportsbook_odds}</span>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Correlation Factor</span>
+                        <span className="font-semibold">
+                          {generateParlay.data.correlation_multiplier.toFixed(3)}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Tail Risk</span>
+                        <span className="font-semibold">
+                          {generateParlay.data.tail_risk_factor.toFixed(3)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {generateParlay.data.explanation && (
+                      <div className="space-y-2 text-sm">
+                        <div className="font-medium">Why this recommendation?</div>
+                        <p className="text-muted-foreground">
+                          {generateParlay.data.explanation.regime_reasoning}
+                        </p>
+                        {generateParlay.data.explanation.factors.length > 0 && (
+                          <ul className="list-disc list-inside space-y-1">
+                            {generateParlay.data.explanation.factors.map((factor, i) => (
+                              <li key={i} className="text-xs">
+                                {factor.name}: {factor.detail}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {generateParlay.isError && (
+                  <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                    <p className="text-sm text-destructive">
+                      Failed to analyze parlay. Please try again.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Player Prop Card Component
+function PlayerPropCard({
+  marginal,
+  onAdd,
+}: {
+  marginal: PlayerMarginal;
+  onAdd: (leg: ParlayLeg) => void;
+}) {
+  if (!marginal.player) return null;
+
+  const playerName = marginal.player.full_name || marginal.player.name;
+  const projection = marginal.passing_yards_projection || marginal.mean || 250;
+
+  return (
+    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50">
+      <div className="flex-1">
+        <div className="font-medium text-sm">{playerName}</div>
+        <div className="text-xs text-muted-foreground">{marginal.player.position}</div>
+      </div>
+      <div className="flex gap-2">
+        {/* Over Button */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            onAdd({
+              type: 'player_prop',
+              player_id: marginal.player!.id,
+              player_name: playerName,
+              stat: 'pass_yards',
+              direction: 'over',
+              line: projection,
+              odds: -110,
+            })
+          }
+        >
+          <TrendingUp className="w-3 h-3 mr-1" />
+          O {projection.toFixed(1)}
+        </Button>
+        {/* Under Button */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            onAdd({
+              type: 'player_prop',
+              player_id: marginal.player!.id,
+              player_name: playerName,
+              stat: 'pass_yards',
+              direction: 'under',
+              line: projection,
+              odds: -110,
+            })
+          }
+        >
+          <TrendingDown className="w-3 h-3 mr-1" />
+          U {projection.toFixed(1)}
+        </Button>
+      </div>
+    </div>
+  );
+}
