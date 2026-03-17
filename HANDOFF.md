@@ -1,92 +1,61 @@
 # SmartParlay Project Status & Handoff Report
 
 **Date:** February 1, 2026
-**Version:** 0.5.0 (Backend Core Complete)
+**Version:** 0.6.0 (Full Stack Integrated & Debugged)
 
 ## 1. Project Overview
-SmartParlay is an automated Same-Game Parlay (SGP) optimizer that identifies +EV (Expected Value) betting opportunities by modeling the correlation between player performances. unlike standard "+EV tools" that look at independent lines, SmartParlay simulates the game 10,000 times using a **Student-t Copula** to capture tail dependencies (e.g., "If Stafford throws for 300+ yards, chances are Kupp also went over").
+SmartParlay is an automated Same-Game Parlay (SGP) optimizer that identifies +EV (Expected Value) betting opportunities by modeling the correlation between player performances. The system uses a **Student-t Copula** simulation engine (JAX-accelerated) to capture tail dependencies (e.g., "If QBs throw deep, WRs likely go over").
 
 ## 2. Architecture Status
-The system is built on a modern Python Async stack.
+The system is now a fully integrated Full Stack application.
 
-*   **Backend:** FastAPI (Async), Pydantic V2.
-*   **Database:** PostgreSQL 15 with SQLAlchemy (AsyncPG).
-*   **Simulation Engine:** JAX (Google's accelerated linear algebra library) for high-speed Monte Carlo simulations (currently achieving <700ms latency for 10k sims).
-*   **Infrastructure:** Docker Compose (Backend, Postgres).
+*   **Frontend:** Next.js 14, Tailwind CSS, Lucide React (UI Components), React Query (State Management).
+*   **Backend:** FastAPI (Async), Pydantic V2, PostgreSQL 15, Redis.
+*   **Simulation Engine:** JAX Monte Carlo kernel running correlations.
+*   **Data Pipeline:** "The Odds API" integration for Game Lines, Player Props, and metadata.
 
-## 3. What Has Been Built (Completed)
+## 3. Recent Major Achievements (Session Goals)
 
-### A. Core Database Schema (`backend/app/models/database/`)
-*   **Teams/Games/Venues:** Standard relational models.
-*   **PlayerMarginals:** Stores projected stats (Mean, StdDev) and Lines for players.
-*   **PlayerCorrelations:** Stores pairwise correlation coefficients (e.g., Stafford-Kupp = 0.75).
-*   **ParlayRecommendations:** Stores generated bets and their EV metrics.
+### A. Frontend Implementation & UI Refinement
+*   **Parlay Builder Page (`/parlay/[gameId]`):**
+    *   Rebuilt UI to mimic FanDuel/DraftKings aesthetics (Dark mode, Tabs for Passing/Rushing/Received/TDs).
+    *   Implemented **Interactive Betslip**: Users can toggle legs, see odds, and submit for analysis.
+    *   **Analysis Results**: Displays "Recommended" status, EV%, True Probability, and detailed insights.
+    *   **Validation**: Added client-side checks (e.g., minimum 2 legs required) to prevent premature API calls.
 
-### B. The Simulation Engine (The "Brain")
-*   **JAX Kernel (`backend/app/services/copula/simulation.py`):** A custom JIT-compiled simulation engine that uses Cholesky decomposition to generate correlated random variables.
-*   **Regime Detection (`backend/app/services/copula/regime.py`):** Logic to detect "Script" (Blowout vs Shootout) and dynamic adjustment of the "Nu" parameter (degrees of freedom).
-*   **Parlay Service (`backend/app/services/parlay_service.py`):**
-    *   **Z-Score Normalization:** implemented robust inputs normalization: `(Line - Mean) / StdDev` to feed the standardized Student-t kernel.
-    *   **Direction Logic:** Implemented advanced handling for "Under" bets by flipping correlation signs (conceptually simulating `-Z`).
+### B. Critical Data Ingestion Fixes
+*   **Team Mapping Fix:** Solved a critical bug where players were defaulting to the Home Team. Implemented **ESPN Roster Lookup** to correctly map players (e.g., Kenneth Walker -> Seahawks) regardless of API inconsistencies.
+*   **TD Scorer Ingestion:** Fixed a bug where "Anytime TD" props were skipped because they lacked a "line" (points) value. Logic now correctly handles "Yes" outcomes and implicit 0.5 lines.
+*   **Rate Limit Handling:** Resolved missing "Receiving Yards" props by optimizing ingestion runs (and retrying successful markets).
 
-### C. API Endpoints
-*   `GET /api/v1/teams`: List all teams.
-*   `GET /api/v1/games`: List upcoming games with live Odds.
-*   `POST /api/v1/parlays/generate`: The core endpoint. Takes a proposed parlay, runs the simulation, and returns True/Implied Probability and EV%.
+### C. Backend Stability
+*   **Analysis API Fix (422 Error):** Resolved a schema mismatch between the Database (`passing_yards`) and Pydantic Models (`pass_yards`). Updated `PropType` Enum to strictly match the database sources.
+*   **JAX Config:** Configured JAX to run efficiently on CPU (avoiding TPU/ROCm warnings in Docker).
 
-### D. Odds Ingestion
-*   **Client:** `TheOddsApiClient` implemented with a fallback `MockOddsClient`.
-*   **Worker:** `backend/scripts/odds_worker.py` runs in the background to fetch "Upcoming NFL Games" and update Spreads/Totals in the DB.
-*   **Data:** Seeded all 32 NFL Teams to ensure ingestion mapping works.
+## 4. Current Workflow (How it Works)
 
-## 4. How to Run / Verify (Instructions for Next Agent)
+1.  **Ingest Data:**
+    *   Script: `backend/scripts/ingest_fanduel_data.py`
+    *   Fetches Odds/Props -> Maps Players (ESPN) -> Calculates implied probs -> Stores in Postgres.
+2.  **View Games (Frontend):**
+    *   Home Page lists active games.
+3.  **Build Parlay:**
+    *   User selects Game -> Selects Props (Over/Under).
+4.  **Analyze:**
+    *   Frontend sends payload to `POST /api/v1/parlays/generate`.
+    *   Backend retrieves correlations -> Runs 10,000 simulations -> Returns EV.
 
-1.  **Start Services:**
-    ```bash
-    docker-compose up -d --build
-    ```
+## 5. Known Issues / Constraints
+*   **API Data Sparsity:** "Anytime TD" props rely on "The Odds API" coverage, which can be spotty for some games. We have successfully ingested records, but coverage varies.
+*   **Rate Limits:** The free tier of The Odds API is strict (requests per second). Data ingestion should be run carefully to avoid 429 errors.
 
-2.  **Seed Data (Teams, Players, Correlations):**
-    ```bash
-    docker-compose exec backend python -m scripts.seed_db
-    docker-compose exec backend python -m scripts.seed_nfl
-    ```
+## 6. Next Steps (Roadmap)
+1.  **Historical Correlations:** Currently, correlations are seeded or estimated. We need to implement a pipeline (e.g., `nfl_data_py`) to calculate *real* historical correlations between specific QB/WR pairs.
+2.  **Authentication:** Implement User Auth (JWT/NextAuth) for saving betting history.
+3.  **Bankroll Management:** Enhance the "Kelly Criterion" suggestion in the Analysis result.
 
-3.  **Run Odds Ingestion:**
-    ```bash
-    # Run a single cycle to fetch live lines
-    docker-compose exec backend python -m scripts.test_odds
-    # OR run the continuous worker
-    docker-compose exec backend python -m scripts.odds_worker
-    ```
-
-4.  **Test The Core Engine:**
-    ```bash
-    # Generate a Parlay (Check .agent/workflows/test_parlay.md for Curl)
-    curl -X POST "http://localhost:8000/api/v1/parlays/generate" ...
-    ```
-
-## 5. Remaining Work / Next Steps
-
-### Immediate Priority: Frontend Implementation
-The backend is ready. The next major step is building the **Next.js** frontend.
-*   **Tasks:**
-    *   Initialize Next.js + Tailwind + Shadcn/UI.
-    *   Create "Game List" page fetching `GET /games`.
-    *   Create "Parlay Builder" page where users select a game, add player props, and click "Analyze".
-
-### Secondary Priority: Enhanced Data Engineering
-Currently, **Player Prop Lines** (e.g., "Stafford Over 265.5") are **Seeded** (Static). 
-*   **Task:** We ingest Game Lines (Spread/Total), but we need to ingest *Player Props*. The Odds API has a `player_props` market (requires higher tier key or specific endpoint configuration).
-*   **Action:** Update `ingest.py` to fetch `player_pass_yds`, `player_reception_yds` and upsert into `PlayerMarginal`.
-
-### Technical Debt / Notes
-1.  **Authorization:** API is currently open. Need to implement JWT Auth if this goes public.
-2.  **Correlation Generation:** Correlations are currently seeded/static. Future work involves writing a script to calculate these from historical play-by-play data (e.g., using `nfl_data_py`).
-3.  **Pydantic Validator:** In `app/models/schemas/parlay.py`, the `check_recommendation_logic` validator is commented out due to V2 context issues. Logic is enforced in Service layer, but should be fixed eventually.
-
-## 6. Critical Files
-*   `backend/app/services/parlay_service.py`: Orchestrator.
-*   `backend/app/services/copula/simulation.py`: Math Kernel.
-*   `backend/app/services/odds/ingest.py`: Data Pipeline.
-*   `backend/scripts/`: Operations scripts.
+## 7. Critical Files
+*   **Frontend**: `frontend/app/parlay/[gameId]/page.tsx` (Main UI Logic)
+*   **Ingestion**: `backend/scripts/ingest_fanduel_data.py` (Data Pipeline & Logic)
+*   **Schema**: `backend/app/models/schemas/parlay.py` (API Contract)
+*   **Service**: `backend/app/services/parlay_service.py` (Core Logic)

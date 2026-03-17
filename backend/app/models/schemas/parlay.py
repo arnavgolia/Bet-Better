@@ -19,16 +19,69 @@ class BetType(str, Enum):
 
 
 class PropType(str, Enum):
-    """Player proposition bet types."""
+    """Player proposition bet types and game prop types."""
+
+    # ===== PASSING PROPS =====
     PASSING_YARDS = "passing_yards"
-    RUSHING_YARDS = "rushing_yards"
-    RECEIVING_YARDS = "receiving_yards"
+    ALT_PASSING_YARDS = "alt_passing_yards"
     PASSING_TDS = "passing_tds"
-    ANYTIME_TDS = "anytime_tds"
-    RECEPTIONS = "receptions"
-    PASS_ATTEMPTS = "pass_attempts"
+    ALT_PASSING_TDS = "alt_passing_tds"
     COMPLETIONS = "completions"
+    PASS_COMPLETIONS = "pass_completions"
+    PASS_ATTEMPTS = "pass_attempts"
+    LONGEST_COMPLETION = "longest_completion"
     INTERCEPTIONS = "interceptions"
+    SACKS_TAKEN = "sacks_taken"
+
+    # ===== RUSHING PROPS =====
+    RUSHING_YARDS = "rushing_yards"
+    ALT_RUSHING_YARDS = "alt_rushing_yards"
+    RUSHING_TDS = "rushing_tds"
+    RUSH_ATTEMPTS = "rush_attempts"
+    LONGEST_RUSH = "longest_rush"
+
+    # ===== RECEIVING PROPS =====
+    RECEIVING_YARDS = "receiving_yards"
+    ALT_RECEIVING_YARDS = "alt_receiving_yards"
+    RECEIVING_TDS = "receiving_tds"
+    RECEPTIONS = "receptions"
+    ALT_RECEPTIONS = "alt_receptions"
+    LONGEST_RECEPTION = "longest_reception"
+
+    # ===== SCORING PROPS =====
+    ANYTIME_TDS = "anytime_tds"
+    FIRST_TD = "first_td"
+    LAST_TD = "last_td"
+    TWO_PLUS_TDS = "two_plus_tds"
+    THREE_PLUS_TDS = "three_plus_tds"
+
+    # ===== GAME PROPS - SPREADS =====
+    SPREAD = "spread"
+    ALT_SPREAD = "alt_spread"
+    FIRST_HALF_SPREAD = "first_half_spread"
+    SECOND_HALF_SPREAD = "second_half_spread"
+    QUARTER_SPREAD = "quarter_spread"
+
+    # ===== GAME PROPS - TOTALS =====
+    TOTAL = "total"
+    ALT_TOTAL = "alt_total"
+    TEAM_TOTAL = "team_total"
+    FIRST_HALF_TOTAL = "first_half_total"
+    SECOND_HALF_TOTAL = "second_half_total"
+    QUARTER_TOTAL = "quarter_total"
+
+    # ===== GAME PROPS - MONEYLINE =====
+    MONEYLINE = "moneyline"
+    FIRST_HALF_MONEYLINE = "first_half_ml"
+    SECOND_HALF_MONEYLINE = "second_half_ml"
+
+    # ===== SPECIAL PROPS =====
+    FIRST_SCORE = "first_score"
+    WINNING_MARGIN = "winning_margin"
+    TOTAL_DRIVES = "total_drives"
+    TOTAL_PUNTS = "total_punts"
+    FIELD_GOALS_MADE = "field_goals_made"
+    EXTRA_POINTS_MADE = "extra_points_made"
 
 
 class PropDirection(str, Enum):

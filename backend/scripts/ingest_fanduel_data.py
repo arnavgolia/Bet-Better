@@ -25,21 +25,70 @@ SPORTS = [
     ("americanfootball_nfl", "NFL"),
 ]
 
-# Player prop markets
+# Player prop markets - COMPREHENSIVE COVERAGE
 PROP_MARKETS = [
+    # Passing props
     "player_pass_yds",
-    "player_pass_tds", 
+    "player_pass_tds",
+    "player_pass_completions",
+    "player_pass_attempts",
+    "player_pass_interceptions",
+    "player_pass_longest_completion",
+
+    # Rushing props
     "player_rush_yds",
+    "player_rush_tds",
+    "player_rush_attempts",
+    "player_rush_longest",
+
+    # Receiving props
     "player_reception_yds",
+    "player_receptions",
+    "player_reception_longest",
+
+    # Touchdown props
     "player_anytime_td",
+    "player_1st_td",
+    "player_last_td",
+    "player_2+_tds",
+    "player_3+_tds",
+
+    # Kicking props
+    "player_field_goals",
+    "player_extra_points",
 ]
 
+# Map API market names to our PropType enum values
 STAT_MAP = {
+    # Passing
     "player_pass_yds": "passing_yards",
     "player_pass_tds": "passing_tds",
+    "player_pass_completions": "completions",
+    "player_pass_attempts": "pass_attempts",
+    "player_pass_interceptions": "interceptions",
+    "player_pass_longest_completion": "longest_completion",
+
+    # Rushing
     "player_rush_yds": "rushing_yards",
+    "player_rush_tds": "rushing_tds",
+    "player_rush_attempts": "rush_attempts",
+    "player_rush_longest": "longest_rush",
+
+    # Receiving
     "player_reception_yds": "receiving_yards",
+    "player_receptions": "receptions",
+    "player_reception_longest": "longest_reception",
+
+    # Touchdown scoring
     "player_anytime_td": "anytime_tds",
+    "player_1st_td": "first_td",
+    "player_last_td": "last_td",
+    "player_2+_tds": "two_plus_tds",
+    "player_3+_tds": "three_plus_tds",
+
+    # Kicking
+    "player_field_goals": "field_goals_made",
+    "player_extra_points": "extra_points_made",
 }
 
 # ESPN Team IDs map (The Odds API name -> ESPN ID)

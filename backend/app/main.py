@@ -14,7 +14,7 @@ import time
 import logging
 
 from app.core.config import settings
-from app.api.routes import parlay, teams, games, players
+from app.api.routes import parlay, teams, games, players, auto_parlay
 
 # Configure logging
 logging.basicConfig(
@@ -202,6 +202,7 @@ app.include_router(parlay.router, prefix=f"/api/{settings.api_version}")
 app.include_router(teams.router, prefix=f"/api/{settings.api_version}")
 app.include_router(games.router, prefix=f"/api/{settings.api_version}")
 app.include_router(players.router, prefix=f"/api/{settings.api_version}")
+app.include_router(auto_parlay.router, prefix=f"/api/{settings.api_version}")
 
 
 # Prometheus metrics endpoint (if enabled)
